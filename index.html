@@ -1,1 +1,160 @@
-<h1>Mini Bar Club</h1>
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mini Bar Club">
+<title>Mini Bar Club</title>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff7ea;color:#241d18}
+header{padding:22px;background:#ff8a00;color:white;font-size:28px;font-weight:800}
+main{padding:16px;max-width:700px;margin:auto}
+.card{background:white;border-radius:20px;padding:16px;margin-bottom:12px;box-shadow:0 8px 20px rgba(0,0,0,.08)}
+.friend{display:flex;justify-content:space-between;align-items:center}
+button{border:0;border-radius:14px;padding:12px 14px;font-weight:800;background:#ff8a00;color:white;font-size:15px}
+button.secondary{background:#eee2d6;color:#4c3b30}
+.products{display:grid;gap:10px}
+.product{display:flex;justify-content:space-between;align-items:center;background:white;border-radius:16px;padding:12px;box-shadow:0 5px 14px rgba(0,0,0,.05)}
+.small{font-size:12px;color:#79695e}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end}
+.modal.show{display:flex}
+.sheet{background:#fff7ea;width:100%;max-height:88vh;overflow:auto;border-radius:24px 24px 0 0;padding:20px}
+input{width:100%;padding:14px;border:1px solid #ddd;border-radius:12px;font-size:18px;box-sizing:border-box}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+h2{margin-top:0}
+</style>
+</head>
+<body>
+<header>🍭 Mini Bar Club</header>
+<main>
+  <div class="card">
+    <b>Saldo mensile:</b> 1000 gettoni a persona
+    <div class="small">All'inizio di ogni mese i saldi tornano automaticamente a 1000.</div>
+  </div>
+  <div id="friends"></div>
+  <button onclick="openAdmin()">🔐 Apri Admin</button>
+</main>
+
+<div id="friendModal" class="modal">
+  <div class="sheet">
+    <button class="secondary" onclick="closeFriend()">Chiudi</button>
+    <h2 id="fname"></h2>
+    <h3 id="fbalance"></h3>
+    <div class="products" id="products"></div>
+  </div>
+</div>
+
+<div id="adminModal" class="modal">
+  <div class="sheet">
+    <button class="secondary" onclick="closeAdmin()">Chiudi</button>
+    <h2>Admin</h2>
+    <div id="pinArea">
+      <input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN">
+      <div class="row"><button onclick="login()">Entra</button></div>
+    </div>
+    <div id="adminArea" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const PIN="1514";
+const START=1000;
+const names=["Oleksii","Maël","Oliver","Emili"];
+const products=[
+{name:"Acqua",price:27},
+{name:"Penna",price:45},
+{name:"Rana in 3D",price:243},
+{name:"Caramelle",price:49},
+{name:"Immagine",price:67},
+{name:"1 CHF",price:999},
+{name:"10 min di iPad o iPhone",price:137},
+{name:"Mystery Box",price:950}
+];
+function mk(){const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)}
+function fresh(){let p={};names.forEach(n=>p[n]={balance:START,bonus:null,history:[]});return {month:mk(),people:p}}
+function load(){
+ let s;try{s=JSON.parse(localStorage.getItem("mbclub"))}catch(e){}
+ if(!s)s=fresh();
+ if(s.month!==mk()){names.forEach(n=>{s.people[n].balance=START;s.people[n].bonus=null});s.month=mk();save(s)}
+ return s
+}
+function save(s){localStorage.setItem("mbclub",JSON.stringify(s))}
+let state=load(), current=null;
+
+function render(){
+ const box=document.getElementById("friends");box.innerHTML="";
+ names.forEach(n=>{
+  const d=document.createElement("div");d.className="card friend";
+  d.innerHTML=`<div><b>${n}</b><div class="small">${state.people[n].balance} gettoni</div></div><button>Apri</button>`;
+  d.onclick=()=>openFriend(n);box.appendChild(d)
+ })
+}
+function openFriend(n){
+ current=n;
+ document.getElementById("fname").textContent=n;
+ document.getElementById("fbalance").textContent=state.people[n].balance+" gettoni";
+ const b=document.getElementById("products");b.innerHTML="";
+ products.forEach((p,i)=>{
+  const r=document.createElement("div");r.className="product";
+  r.innerHTML=`<span>${p.name}<br><span class="small">${p.price} gettoni</span></span><button onclick="buy(${i})">Compra</button>`;
+  b.appendChild(r)
+ });
+ const bonus=document.createElement("div");bonus.className="product";
+ const used=state.people[n].bonus===mk();
+ bonus.innerHTML=`<span>Ricarica bonus<br><span class="small">Paga 50 e ricevi 85 • 1 volta al mese</span></span><button ${used?"disabled":""} onclick="bonus()">Usa</button>`;
+ b.appendChild(bonus);
+ document.getElementById("friendModal").classList.add("show")
+}
+function closeFriend(){document.getElementById("friendModal").classList.remove("show")}
+function buy(i){
+ const p=products[i], f=state.people[current];
+ if(f.balance<p.price){alert("Gettoni insufficienti");return}
+ if(!confirm("Confermi "+p.name+" per "+p.price+" gettoni?"))return;
+ f.balance-=p.price;f.history.unshift(p.name+" -"+p.price);save(state);render();openFriend(current)
+}
+function bonus(){
+ const f=state.people[current];
+ if(f.bonus===mk()){alert("Bonus già usato questo mese");return}
+ if(f.balance<50){alert("Gettoni insufficienti");return}
+ f.balance=f.balance-50+85;f.bonus=mk();f.history.unshift("Ricarica bonus +35");save(state);render();openFriend(current)
+}
+function openAdmin(){
+ document.getElementById("pin").value="";
+ document.getElementById("pinArea").style.display="block";
+ document.getElementById("adminArea").style.display="none";
+ document.getElementById("adminModal").classList.add("show")
+}
+function closeAdmin(){document.getElementById("adminModal").classList.remove("show")}
+function login(){
+ if(document.getElementById("pin").value!==PIN){alert("PIN errato");return}
+ document.getElementById("pinArea").style.display="none";
+ document.getElementById("adminArea").style.display="block";renderAdmin()
+}
+function renderAdmin(){
+ const a=document.getElementById("adminArea");a.innerHTML="";
+ names.forEach(n=>{
+  const d=document.createElement("div");d.className="card";
+  d.innerHTML=`<b>${n}</b><div>${state.people[n].balance} gettoni</div>
+  <div class="row">
+   <button onclick="adj('${n}',50)">+50</button>
+   <button onclick="adj('${n}',100)">+100</button>
+   <button class="secondary" onclick="adj('${n}',-50)">-50</button>
+   <button class="secondary" onclick="selectFriend('${n}')">Acquisto</button>
+  </div>`;
+  a.appendChild(d)
+ });
+ const r=document.createElement("button");r.textContent="Reset tutti a 1000";r.onclick=resetAll;a.appendChild(r)
+}
+function adj(n,v){
+ state.people[n].balance=Math.max(0,state.people[n].balance+v);save(state);render();renderAdmin()
+}
+function selectFriend(n){closeAdmin();openFriend(n)}
+function resetAll(){
+ if(!confirm("Riportare tutti a 1000 gettoni?"))return;
+ names.forEach(n=>{state.people[n].balance=START;state.people[n].bonus=null});state.month=mk();save(state);render();renderAdmin()
+}
+render();
+</script>
+</body>
+</html>
